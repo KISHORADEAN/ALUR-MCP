@@ -31,6 +31,7 @@ function createMockFetch(responses: Map<string, { status: number; body: unknown;
         ok: match.status >= 200 && match.status < 300,
         status: match.status,
         statusText: match.status >= 400 ? 'Error' : 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
         json: async () => match.body,
         text: async () => JSON.stringify(match.body),
       } as Response;
@@ -49,6 +50,85 @@ describe('OpenRouterAgent error handling', () => {
   afterEach(() => {
     global.fetch = originalFetch;
     vi.restoreAllMocks();
+  });
+
+  it('handles HTTP 403 on chat completion as security-relevant', async () => {
+    global.fetch = createMockFetch(
+      new Map([
+        [
+          'https://openrouter.ai/api/v1/models',
+          {
+            status: 200,
+            body: { data: [{ id: 'openrouter/free', supported_parameters: ['tools'], context_length: 4096 }] },
+          },
+        ],
+        [
+          'https://openrouter.ai/api/v1/chat/completions',
+          { status: 403, body: { error: { message: 'Access denied', type: 'access_denied_error' } } },
+        ],
+      ]),
+    );
+    const agent = new OpenRouterAgent({ apiKey: SYNTHETIC_KEY, model: 'openrouter/free', timeoutMs: 10_000, maxSteps: 5 });
+    const assessment = await agent.review({
+      stage: 'preflight',
+      inspection: {
+        url: 'https://ramli-labs.github.io/ALUR/',
+        title: 'ALUR',
+        view: 'lab',
+        bootstrapped: true,
+        navTabs: [],
+        identity: { fields: [], nameStored: false, classStored: false, bothVisible: false, problems: [] },
+        lab: {
+          status: { state: 'ready', text: 'Siap' },
+          consoleOutput: [],
+          consoleEntryCount: 0,
+          error: { visible: false, text: '' },
+          editor: { present: true, length: 100, knownPracticeSignatures: [] },
+          inputsLength: 0,
+          examples: [{ id: 'faktorial', title: 'Faktorial n' }],
+        },
+        mission: { active: false, countText: '0/12', selected: null, summary: null, cards: [] },
+        pageErrors: [],
+      },
+      allowedActions: ['fill_identity', 'run_practice', 'capture_evidence', 'stop'],
+    });
+    expect(assessment.status).toBe('failed');
+    expect(assessment.error).toMatch(/403/);
+  });
+
+  it('handles unavailable model from model list', async () => {
+    global.fetch = createMockFetch(
+      new Map([
+        [
+          'https://openrouter.ai/api/v1/models',
+          {
+            status: 200,
+            body: { data: [{ id: 'other-model', supported_parameters: [], context_length: 4096 }] },
+          },
+        ],
+      ]),
+    );
+    const agent = new OpenRouterAgent({ apiKey: SYNTHETIC_KEY, model: 'openrouter/free', timeoutMs: 10_000, maxSteps: 5 });
+    const cap = await agent.checkCapabilities();
+    expect(cap.checked).toBe(true);
+    expect(cap.found).toBe(false);
+  });
+
+  it('detects tool support from model capabilities', async () => {
+    global.fetch = createMockFetch(
+      new Map([
+        [
+          'https://openrouter.ai/api/v1/models',
+          {
+            status: 200,
+            body: { data: [{ id: 'openrouter/free', supported_parameters: ['tools'], context_length: 4096 }] },
+          },
+        ],
+      ]),
+    );
+    const agent = new OpenRouterAgent({ apiKey: SYNTHETIC_KEY, model: 'openrouter/free', timeoutMs: 10_000, maxSteps: 5 });
+    const cap = await agent.checkCapabilities();
+    expect(cap.toolsSupported).toBe(true);
   });
 
   it('handles HTTP 401 on chat completion as security-relevant (no retry)', async () => {
@@ -101,7 +181,7 @@ describe('OpenRouterAgent error handling', () => {
       });
       console.log('Assessment:', JSON.stringify(assessment, null, 2));
       expect(assessment.status).toBe('failed');
-      expect(assessment.error).toContain('HTTP 401');
+      expect(assessment.error).toMatch(/401/);
     } catch (e) {
       console.error('Error thrown:', e);
       throw e;

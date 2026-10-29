@@ -17,7 +17,7 @@
     "test:integration": "RUN_LIVE_ALUR=1 vitest run tests/integration/alur-mcp.integration.test.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
-    "smoke:openrouter": "bash -c 'if [ -z \"$OPENROUTER_API_KEY\" ]; then echo \"UNVERIFIED: OPENROUTER_API_KEY not configured\"; exit 0; fi; echo \"Live smoke: OPENROUTER_API_KEY present; run optional manual test\"; node -e \"const key = process.env.OPENROUTER_API_KEY; if (!key || !key.startsWith(\"sk-\")) { console.log(\"UNVERIFIED: key missing or invalid format\"); process.exit(0); } console.log(\"Smoke test: key format ok, model=openrouter/free; manual verification required\");\"'"
+    "smoke:openrouter": "bash -c 'if [ -z \"$OPENROUTER_API_KEY\" ]; then echo \"UNVERIFIED: OPENROUTER_API_KEY not configured\"; exit 0; fi; echo \"LIVE SMOKE STARTED: calling OpenRouter /models with configured key\"; RESP=$(curl -s -o /tmp/alur_smoke_resp.json -w \"%{http_code}\" -H \"Authorization: Bearer $OPENROUTER_API_KEY\" \"https://openrouter.ai/api/v1/models\" --max-time 15); echo \"HTTP $RESP\"; if [ \"$RESP\" = \"200\" ]; then MODEL_COUNT=$(node -e \"try{const d=require(\"/tmp/alur_smoke_resp.json\"); console.log(typeof d.data!==\"undefined\"?d.data.length:0)}catch{console.log(0)}\"); if [ \"$MODEL_COUNT\" -gt 0 ]; then echo \"PASS: OpenRouter live smoke OK (models=$MODEL_COUNT, model=openrouter/free configured)\"; else echo \"FAIL: HTTP 200 but invalid response body\"; exit 1; fi; else echo \"FAIL: OpenRouter live smoke rejected (HTTP $RESP)\"; exit 1; fi'"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.4.0",
