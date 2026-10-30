@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import crypto from 'node:crypto';
-import dotenv from 'dotenv';
+import { loadProjectEnv } from './env.js';
 import { OpenRouterAgent } from './agent.js';
 import { ApprovalBroker } from './approval-broker.js';
 import { ApprovalGate } from './approvals.js';
@@ -152,7 +152,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  dotenv.config({ quiet: true });
+  loadProjectEnv();
   const env: NodeJS.ProcessEnv = { ...process.env };
   if (options.headless !== null) env.HEADLESS = String(options.headless);
   if (options.example !== null) env.ALUR_PRACTICE_EXAMPLE = options.example;

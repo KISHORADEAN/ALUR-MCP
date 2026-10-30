@@ -118,6 +118,28 @@ ALUR_LOG_DIR=logs
 
 `.env` is ignored by Git. Never commit it.
 
+Environment loading is centralized: the CLI and smoke scripts load the
+repository-root `.env` (not the shell's working directory). Existing non-empty
+shell environment variables win; empty or whitespace-only values count as
+unconfigured, and an exported-empty key does not shadow a real `.env` value.
+Check the effective state without printing the secret:
+
+```bash
+npm run env:check
+```
+
+OpenRouter smoke checks are separate on purpose:
+
+```bash
+npm run smoke:openrouter   # GET /api/v1/models only
+npm run smoke:chat         # POST /api/v1/chat/completions, requires a real key
+```
+
+`smoke:openrouter` succeeding does not prove chat completion works.
+`smoke:chat` reports PASS only when HTTP 200 includes non-empty answer text.
+Both commands print `UNVERIFIED` and exit 0 when no key is configured; they
+never print the key, Authorization header, or raw response bodies.
+
 ## Commands
 
 ```bash

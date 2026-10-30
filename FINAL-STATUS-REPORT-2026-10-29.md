@@ -1,57 +1,54 @@
-ALUR MCP — Final Verification Report (updated 2026-10-29 session)
-Working directory: "/Users/kishoradean/Software-Project/ALUR MCP "
+ALUR MCP — Environment & OpenRouter Validation Report (2026-10-30)
 
-1. ROOT CAUSES OF FAILURES (actual)
-- tests/agent-openrouter.test.ts failed with "Cannot read properties of undefined (reading 'entries')" because the mock Response omitted `headers`; the openai SDK calls `response.headers.entries()` when processing any response. Fix: add `headers: new Headers({ 'content-type': 'application/json' })` to mock responses. Adjust assertion to match SDK error message ("401 Invalid key" rather than "HTTP 401"). Added 403/unavailable/tool-detection tests.
-- No production bugs found; failure was test-mock only.
+1. ROOT CAUSE (confirmed from files)
+- The repository-root `.env` currently contains `OPENROUTER_API_KEY=` with a **zero-length value**. `OPENROUTER_API_KEY` is also absent from the shell environment.
+- Therefore `dotenv` correctly loads an empty string, and every check treats it as unconfigured: `Key available: false`, `Key length: 0`, `UNVERIFIED: API key not readable`.
+- File inspection ruled out encoding/format causes: no BOM, LF-only, 8 lines, key assignment present.
+- A previous `.env` had duplicate assignments (e.g. two `STUDENT_NAME` lines), which made edits appear inconsistent; it has been cleaned to one assignment per key.
+- Loading was not the root cause of the chat test, but it was inconsistent: the old smoke snippet resolved `.env` from the shell's working directory. It now resolves from the repository root.
 
-2. FILES CHANGED (with reason)
-- src/agent.ts: import fix (redactString) — earlier session
-- tests/agent-openrouter.test.ts: rebuilt mock with headers, 4 tests (401/403/unavailable/tools), preserves security-verification intent
-- package.json: smoke:openrouter performs real curl with validation (PASS only on valid response)
-- .env: created locally (synthetic identity, not tracked; .gitignore covers it)
-- logs/alur-2026-10-29.jsonl: repaired to 0600 (existing, content unchanged)
-- evidence/2026-10-29/: repaired to 0700; new task-004 evidence preserved with 0600
-- FINAL-STATUS-REPORT-2026-10-29.md: updated with reconciled results
+Hypotheses not confirmed:
+- A real key may have been typed into a different file (`.env.example`, another checkout) or not saved.
+- If a shell exported an empty `OPENROUTER_API_KEY`, it could previously shadow `.env`; this is now handled by deleting empty/whitespace-only values before dotenv loads.
 
-3. ACTUAL COMMAND RESULTS
-- npm ci: PASS
-- npm test: 5 passed files | 1 skipped (integration, RUN_LIVE_ALUR not set) | 46 passed | 1 skipped assertions | 0 failed
-- npm run typecheck: PASS
-- npm run build: PASS
-- npm run smoke:openrouter (no key): UNVERIFIED — zero network requests, exits 0
-- stat permissions (verified with macOS stat): log 0600, evidence dir 0700, evidence files 0600
+2. FILES CHANGED
+- `src/env.ts` (new): single project env loader; resolves repository-root `.env` (or an explicit cwd with `.env`), preserves non-empty shell values, treats empty/whitespace as unset.
+- `src/config.ts`, `src/index.ts`: use `loadProjectEnv()` instead of ad-hoc `dotenv.config()`.
+- `scripts/env.js` (new): same root-resolution rules for scripts.
+- `scripts/openrouter-smoke-lib.js` (new): testable `checkModels` / `checkChat`; trims keys; safe error text; no secret output.
+- `scripts/smoke-openrouter.js`: now checks `/models` only and explicitly says so.
+- `scripts/smoke-chat.js` (new): checks `POST /chat/completions`; PASS only for HTTP 200 with non-empty answer text.
+- `scripts/check-env.js` (new): `npm run env:check`, reports presence/length/source without printing values.
+- `package.json`: scripts `env:check`, `smoke:openrouter`, `smoke:chat`.
+- `tests/openrouter-smoke.test.ts` (new): 16 mocked tests.
+- `tests/env-config.test.ts`: `.env` loading, whitespace-only keys, empty-shell shadowing.
+- `README.md`: `.env` and smoke-test guidance.
+- No browser workflow, approval boundary, evidence, or logs were modified.
 
-4. APPROVAL / SECURITY AUDIT (actual mcp-server.ts inspection)
-- Mutation-bound actions (require broker socket via ALUR_MCP_APPROVAL_SOCKET): alur_fill_identity, alur_run_practice
-- Read-only / non-mutating (no broker approval required): firefox_launch, alur_open, alur_inspect, alur_open_view, alur_verify_identity, alur_screenshot, firefox_close
-- Broker fails safely: missing socket → APPROVAL_UNAVAILABLE; insecure socket (not owner-only) → APPROVAL_INSECURE; timeout → APPROVAL_TIMEOUT; denied → APPROVAL_DENIED
-- Sensitive files: 0600; directories 0700; atomic writes; redaction skips operational keys
+3. TEST RESULTS (executed)
+- `npm test`: **66 passed | 1 skipped | 0 failed** (7 passed files, 1 skipped live integration).
+- `npm run typecheck`: PASS.
+- `npm run build`: PASS.
+- `npm run env:check`: `.env` exists, assignment line present, value length 0, effective key configured: no → `UNVERIFIED`.
+- `npm run smoke:openrouter`: `UNVERIFIED` (no key configured); no network request.
+- `npm run smoke:chat`: `UNVERIFIED` (no key configured); no network request.
+- Mocked coverage: missing/empty/whitespace keys, HTTP 401/402/429/5xx, malformed JSON, missing/empty answer text, timeouts, network failures, and no secret leakage.
 
-5. LIVE FIREFOX WORKFLOW (verified end-to-end)
-- Mode: start, --yes, --headless, --example faktorial, --no-ai
-- Official URL verified: https://ramli-labs.github.io/ALUR/
-- Practice execution verified: "Faktorial n" completed, exact source/inputs/output, completion log matched
-- Completion state: VERIFIED (deterministic verifier, not AI)
-- Evidence: task-004.png (130455 bytes, 1440×955, sha256 55cae... matches report); task-004.report.json; task-004.json (all 0600)
-- No existing evidence deleted or altered; task-001/002/003 preserved unchanged
-- Log entries contain `nameConfigured=true`, `classConfigured=true` but never expose the configured identity values (redacted)
-Status: PASS (live Firefox verified in session)
+4. LIVE RESULTS (separate)
+- Live `/models`: **UNVERIFIED** for the current environment (no real key). An earlier synthetic-key run returned HTTP 200 with 457 models, but that is not a valid credential verification.
+- Live chat completion: **UNVERIFIED**. No real key is configured; `smoke:chat` made no request.
+- Do not treat `/models` success as chat-completion success.
 
-6. OPENROUTER VERIFICATION
-- Mocked error tests: PASS (401/403/unavailable/tool-detection verified)
-- Live smoke: UNVERIFIED (no OPENROUTER_API_KEY configured; smoke script prints UNVERIFIED with zero network calls)
-- Smoke script design verified: when key exists, performs real `curl` to /models, reports PASS only if HTTP 200 and `data` array non-empty; otherwise FAIL with exit 1. No artificial success.
-- No API keys or secrets printed; .env not committed.
-Status: Mock PASS / Live UNVERIFIED
+5. SECURITY / GIT
+- `.env` is not tracked; `.gitignore` covers it.
+- `.env.example` contains placeholders only.
+- Smoke scripts never print key, Authorization header, or raw response bodies.
+- `git status` shows only intended source/test/doc changes. No commit, push, or history rewrite performed.
 
-7. REMAINING RISKS / NEXT MANUAL STEPS
-- OpenRouter live chat/tool-call not executed (key absent); if needed, configure OPENROUTER_API_KEY and run `npm run smoke:openrouter`
-- Firefox workflow verified this session; if reenacted with different examples (rata), same approval pipeline applies
-- Regex redaction limitation remains documented
-- Zero git commits remain; audit trail is file-state + this report
-Next commands to verify manually (optional):
-  stat -f '%Sp %OLp %N' '/Users/kishoradean/Software-Project/ALUR MCP /logs/alur-2026-10-29.jsonl'
-  stat -f '%Sp %OLp %N' '/Users/kishoradean/Software-Project/ALUR MCP /evidence/2026-10-29/'
-  npm test
-  OPENROUTER_API_KEY=<key> npm run smoke:openrouter  # only if user explicitly authorizes network test
+6. NEXT COMMANDS
+- `npm run env:check` — verify the effective key state without printing it.
+- Put a real key on the single `OPENROUTER_API_KEY=` line in the repository-root `.env` (or export a non-empty shell value), then:
+  - `npm run smoke:openrouter`
+  - `npm run smoke:chat`
+- Optional Firefox check: `npm run dry-run -- --headless`, then `npm run start -- --yes --headless --example faktorial --no-ai`.
+- If the key still reads as absent after editing, run `npm run env:check` and confirm `.env` path and `value length in .env`.

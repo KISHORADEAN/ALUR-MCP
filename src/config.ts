@@ -1,5 +1,5 @@
 import path from 'node:path';
-import dotenv from 'dotenv';
+import { loadProjectEnv } from './env.js';
 import { DEFAULT_ALUR_URL, isPracticeExampleId, normalizeAlurUrl, type PracticeExample } from './site.js';
 
 export type CliMode = 'start' | 'inspect' | 'dry-run';
@@ -100,7 +100,7 @@ export function loadConfig(options: LoadConfigOptions = {}): AgentConfig {
   const requireIdentity = options.requireIdentity ?? (mode === 'start' || mode === 'dry-run');
 
   if (options.loadDotenv !== false && env === process.env) {
-    dotenv.config({ path: path.join(cwd, '.env'), quiet: true });
+    loadProjectEnv({ cwd });
   }
 
   const problems: string[] = [];
