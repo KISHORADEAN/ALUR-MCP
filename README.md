@@ -13,6 +13,18 @@ or submit graded missions.
 > has not been executed because no API key was available. See
 > [Verified and unverified](#verified-and-unverified).
 
+## Quick start
+
+```bash
+npm install
+npx playwright install firefox
+cp .env.example .env
+# edit .env with STUDENT_NAME, STUDENT_CLASS, and (for AI mode) OPENROUTER_API_KEY
+npm run typecheck && npm test
+npm run dry-run -- --headless
+npm run start -- --headless --yes --no-ai
+```
+
 ## What it does
 
 - Launches Playwright **Firefox** and refuses to continue with any other
@@ -332,7 +344,7 @@ Verified live on macOS on 2026-10-29:
 | Check | Result |
 | --- | --- |
 | `npm run typecheck` | Passed |
-| `npm test` | 38 passed, 1 skipped (live test skipped by default) |
+| `npm test` | 66 passed, 1 skipped (live integration skipped by default) |
 | `npm run test:integration` | 1 live test passed (10.45 s) |
 | `npm run build` | Passed |
 | `npm --silent run inspect -- --headless --json` | Passed against live ALUR |
