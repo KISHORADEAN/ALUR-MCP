@@ -332,7 +332,7 @@ Verified live on macOS on 2026-10-29:
 | Check | Result |
 | --- | --- |
 | `npm run typecheck` | Passed |
-| `npm test` | 38 passed, 1 skipped (live test skipped by default) |
+| `npm test` | 66 passed, 1 skipped (live test skipped by default) |
 | `npm run test:integration` | 1 live test passed (10.45 s) |
 | `npm run build` | Passed |
 | `npm --silent run inspect -- --headless --json` | Passed against live ALUR |
@@ -377,8 +377,12 @@ src/
   types.ts       shared evidence and report types
   workflow.ts    deterministic approval-gated orchestration
 tests/
-  config.test.ts
+  agent-openrouter.test.ts
   completion.test.ts
+  config.test.ts
+  env-config.test.ts
+  mcp-approval.test.ts
+  openrouter-smoke.test.ts
   workflow.test.ts
   integration/alur-mcp.integration.test.ts
 ```
