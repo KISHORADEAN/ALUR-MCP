@@ -66,7 +66,7 @@ and the deterministic verifier alone decides the final state.
 
 ## Requirements
 
-- Node.js 20 or newer (verified with Node 25.9.0)
+- Node.js 20 or newer (verified with Node 25.9.0 and 26.13.1)
 - npm
 - macOS, Linux, or Windows (only macOS was verified for this build)
 - Network access to `https://ramli-labs.github.io/ALUR/`
